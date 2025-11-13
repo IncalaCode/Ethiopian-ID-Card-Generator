@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# Setup runtime paths for bundled executable
+try:
+    import setup_runtime
+except ImportError:
+    pass  # Not running as bundled app
+
 from flask import Flask, request, jsonify
 import os
 import sys
