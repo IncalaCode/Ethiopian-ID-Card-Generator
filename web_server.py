@@ -11,6 +11,15 @@ import sys
 import threading
 import queue
 import time
+
+def get_resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 try:
     import tkinter as tk
     from tkinter import ttk
@@ -139,9 +148,12 @@ def process_queue():
                 front_path = f"front_{name_clean}_{timestamp}.png"
                 back_path = f"back_{name_clean}_{timestamp}.png"
                 
-                gen.generate_front("data/photo_2025-11-11_21-48-06.jpg", "extracted_photo.jpg", data, front_path)
+                front_template = get_resource_path("data/photo_2025-11-11_21-48-06.jpg")
+                back_template = get_resource_path("data/photo_2025-11-11_21-47-57.jpg")
+                
+                gen.generate_front(front_template, "extracted_photo.jpg", data, front_path)
                 qr_data = f"ID:{data['id_number']},Name:{data['name_en']},DOB:{data['dob']}"
-                gen.generate_back("data/photo_2025-11-11_21-47-57.jpg", qr_data, data, back_path)
+                gen.generate_back(back_template, qr_data, data, back_path)
                 update_ui(data, front_path, back_path)
             except Exception as e:
                 import traceback
