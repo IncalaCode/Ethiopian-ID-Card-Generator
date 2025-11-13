@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+bin/
+include/
+share/
+pyvenv.cfg
+
+# Generated files
+output/
+uploads/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+extracted_*.jpg
+extracted_*.png
+temp_*.png
+front_*.png
+back_*.png
+ID_*.png
+ID_*.pdf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
