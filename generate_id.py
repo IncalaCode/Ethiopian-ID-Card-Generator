@@ -16,39 +16,39 @@ from barcode.writer import ImageWriter
 
 class EthiopianIDGenerator:
     def __init__(self):
-        # Load fonts
-        self.am_font = self._load_font("/usr/share/fonts/truetype/noto/NotoSansEthiopic-Regular.ttf", 28)
-        self.am_font_bold = self._load_font("/usr/share/fonts/truetype/noto/NotoSansEthiopic-Bold.ttf", 28)
-        self.en_font = self._load_font("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf", 24)
-        self.en_font_bold = self._load_font("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf", 24)
+        # Load fonts with larger sizes
+        self.am_font = self._load_font("/usr/share/fonts/truetype/noto/NotoSansEthiopic-Regular.ttf", 36)
+        self.am_font_bold = self._load_font("/usr/share/fonts/truetype/noto/NotoSansEthiopic-Bold.ttf", 36)
+        self.en_font = self._load_font("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf", 32)
+        self.en_font_bold = self._load_font("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf", 32)
         self.color = (0, 0, 0)  # Black color
         
         # Configuration arrays
         self.front_config = {
             'main_photo': {'x': 70, 'y': 180, 'w': 420, 'h': 575},
             'small_photo': {'x': 1000, 'y': 640, 'w': 100, 'h': 100},
-            'name_am': {'x': 520, 'y': 230, 'font': 'NotoSansEthiopic-Bold.ttf', 'size': 28, 'color': (0, 0, 0)},
-            'name_en': {'x': 520, 'y': 265, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
+            'name_am': {'x': 520, 'y': 230, 'font': 'NotoSansEthiopic-Bold.ttf', 'size': 40, 'color': (0, 0, 0)},
+            'name_en': {'x': 520, 'y': 265, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
             # separate Amharic and English positions so both are not drawn at the same place
-            'dob_am': {'x': 520, 'y': 365, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
-            'dob': {'x': 520, 'y': 390, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
-            'sex_am': {'x': 520, 'y': 445, 'font': 'NotoSansEthiopic-Bold.ttf', 'size': 26, 'color': (0, 0, 0)},
-            'sex': {'x': 520, 'y': 470, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
-            'expiry_ec': {'x': 520, 'y': 565, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
-            'expiry_gc': {'x': 520, 'y': 560, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
+            'dob_am': {'x': 520, 'y': 365, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
+            'dob': {'x': 520, 'y': 390, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
+            'sex_am': {'x': 520, 'y': 445, 'font': 'NotoSansEthiopic-Bold.ttf', 'size': 38, 'color': (0, 0, 0)},
+            'sex': {'x': 520, 'y': 470, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
+            'expiry_ec': {'x': 520, 'y': 565, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
+            'expiry_gc': {'x': 520, 'y': 560, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
             'id_number': {'x': 620, 'y': 620, 'font': 'NotoSans-Bold.ttf', 'size': 26, 'color': (0, 0, 0)},
             'barcode': {'x': 580, 'y': 650, 'w': 350, 'h': 80},
-            'issue_date_ec': {'x': 25, 'y': 20, 'font': 'NotoSans-Bold.ttf', 'size': 20, 'color': (0, 0, 0)},
-            'issue_date_gc': {'x': 25, 'y': 340,'font': 'NotoSans-Bold.ttf', 'size': 20, 'color': (0, 0, 0)}
+            'issue_date_ec': {'x': 25, 'y': 20, 'font': 'NotoSans-Bold.ttf', 'size': 28, 'color': (0, 0, 0)},
+            'issue_date_gc': {'x': 25, 'y': 340,'font': 'NotoSans-Bold.ttf', 'size': 28, 'color': (0, 0, 0)}
         }
         
         self.back_config = {
             'qr_code': {'x': 580, 'y': 30, 'size': 680},
-            'phone': {'x': 50, 'y': 100, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
-            'nationality': {'x': 50, 'y': 210, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
-            'address': {'x': 50, 'y': 310, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color':  (0, 0, 0)},
-            'fin': {'x': 140, 'y': 660, 'font': 'NotoSans-Bold.ttf', 'size': 20, 'color': (0, 0, 0)},
-            'sn': {'x': 1050, 'y': 725, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)}
+            'phone': {'x': 50, 'y': 100, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
+            'nationality': {'x': 50, 'y': 210, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
+            'address': {'x': 50, 'y': 310, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color':  (0, 0, 0)},
+            'fin': {'x': 140, 'y': 660, 'font': 'NotoSans-Bold.ttf', 'size': 26, 'color': (0, 0, 0)},
+            'sn': {'x': 1050, 'y': 720, 'font': 'NotoSans-Bold.ttf', 'size': 28, 'color': (0, 0, 0)}
         }
     
     def _load_font(self, font_name, size):
@@ -683,6 +683,29 @@ def extract_from_pdf(pdf_path):
                     data['expiry_gc'] = expiry_gc
                     print(f"  ✓ Expiry EC: {data['expiry_ec']}")
                     print(f"  ✓ Expiry GC: {data['expiry_gc']}")
+                else:
+                    # Fallback: look for expiry dates in different patterns
+                    expiry_patterns = [
+                        r'(\d{4}/\d{2}/\d{2})\s*[|\s]*(\d{4}/[A-Za-z]{3,4}/\d{1,2}).*?(?:Expiry|expiry)',
+                        r'(?:Expiry|expiry).*?(\d{4}/\d{2}/\d{2}).*?(\d{4}/[A-Za-z]{3,4}/\d{1,2})',
+                        r'(\d{4}/\d{2}/\d{2}).*?(\d{4}/[A-Za-z]{3,4}/\d{1,2})'
+                    ]
+                    
+                    for pattern in expiry_patterns:
+                        match = re.search(pattern, ocr_text, re.IGNORECASE)
+                        if match:
+                            # Check if these dates are likely expiry (not DOB or issue)
+                            date1 = match.group(1)
+                            date2 = match.group(2)
+                            year1 = int(date1.split('/')[0])
+                            
+                            # Expiry dates should be in future (2026+)
+                            if year1 >= 2026:
+                                data['expiry_ec'] = date1
+                                data['expiry_gc'] = date2.replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20')
+                                print(f"  ✓ Expiry EC (fallback): {data['expiry_ec']}")
+                                print(f"  ✓ Expiry GC (fallback): {data['expiry_gc']}")
+                                break
                 
                 # Compare PDF vs OCR name
                 pdf_name = data.get('name_en', '')
@@ -740,6 +763,12 @@ def extract_from_pdf(pdf_path):
                     if len(dates_with_month) >= 2:
                         data['issue_date_ec'] = dates_with_month[1].replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
                         print(f"  ✓ Issue Date EC (fallback): {data['issue_date_ec']}")
+                
+                # If still no expiry dates found, set defaults
+                if not data.get('expiry_ec') and not data.get('expiry_gc'):
+                    print(f"  ⚠ No expiry dates found in OCR, using defaults")
+                    data['expiry_ec'] = '2026/03/02'
+                    data['expiry_gc'] = '2033/Nov/11'
                 
                 # Fix address if invalid
                 if not data.get('address') or 'Demographic' in data.get('address', '') or 'zone' in data.get('address', '').lower():

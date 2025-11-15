@@ -246,7 +246,7 @@ class DataViewerUI:
         # Buttons below table
         btn_frame = ttk.Frame(left_frame)
         btn_frame.pack(pady=10)
-        ttk.Button(btn_frame, text="Download Selected (PDF)", command=self.download_selected).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Download Selected (PNG)", command=self.download_selected).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Select All", command=self.select_all).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Deselect All", command=self.deselect_all).pack(side=tk.LEFT, padx=5)
         
@@ -439,26 +439,69 @@ class DataViewerUI:
             return
         
         try:
-            all_images = []
+            # A4 dimensions at 300 DPI
+            A4_WIDTH = 2480
+            A4_HEIGHT = 3508
+            MARGIN = 40
+            CARD_SPACING = 20
+            
+            # Load all card pairs (BACK left, FRONT right)
+            all_cards = []
             for key in selected_keys:
                 entry = self.history[key]
                 front_img = Image.open(entry['front']).transpose(Image.FLIP_LEFT_RIGHT)
                 back_img = Image.open(entry['back']).transpose(Image.FLIP_LEFT_RIGHT)
                 
-                # Combine BACK first, then FRONT
+                # Combine BACK first (left), then FRONT (right)
                 combined_width = back_img.width + front_img.width + 20
                 combined = Image.new('RGB', (combined_width, back_img.height), 'white')
                 combined.paste(back_img, (0, 0))
                 combined.paste(front_img, (back_img.width + 20, 0))
-                all_images.append(combined)
+                all_cards.append(combined)
             
+            # Fixed: 5 cards per page
+            cards_per_page = 5
+            num_pages = (len(all_cards) + cards_per_page - 1) // cards_per_page
+            
+            # Calculate scale to fit 5 cards vertically
+            usable_width = A4_WIDTH - (2 * MARGIN)
+            usable_height = A4_HEIGHT - (2 * MARGIN) - (4 * CARD_SPACING)
+            card_height = usable_height // 5
+            scale = min(usable_width / all_cards[0].width, card_height / all_cards[0].height) if all_cards else 1
+            
+            # Create pages
+            pages = []
+            for page_num in range(num_pages):
+                page = Image.new('RGB', (A4_WIDTH, A4_HEIGHT), 'white')
+                
+                # Get cards for this page
+                start_idx = page_num * cards_per_page
+                end_idx = min(start_idx + cards_per_page, len(all_cards))
+                page_cards = all_cards[start_idx:end_idx]
+                
+                # Stack cards vertically
+                y_offset = MARGIN
+                for card in page_cards:
+                    # Scale card
+                    new_width = int(card.width * scale)
+                    new_height = int(card.height * scale)
+                    scaled_card = card.resize((new_width, new_height), Image.LANCZOS)
+                    
+                    # Center horizontally
+                    x_offset = (A4_WIDTH - new_width) // 2
+                    
+                    page.paste(scaled_card, (x_offset, y_offset))
+                    y_offset += new_height + CARD_SPACING
+                
+                pages.append(page)
+            
+            # Save all pages as PNG
             save_dir = self.save_path.get()
-            output_path = os.path.join(save_dir, f"ID_Selected_{len(selected_keys)}_{time.strftime('%Y%m%d_%H%M%S')}.pdf")
+            for i, page in enumerate(pages):
+                output_path = os.path.join(save_dir, f"ID_Page{i+1}_{time.strftime('%Y%m%d_%H%M%S')}.png")
+                page.save(output_path, dpi=(300, 300))
             
-            # Save as PDF
-            all_images[0].save(output_path, save_all=True, append_images=all_images[1:], resolution=100.0)
-            
-            self.show_toast(f"✓ Downloaded {len(selected_keys)} IDs as PDF", "success")
+            self.show_toast(f"✓ Downloaded {len(selected_keys)} IDs ({num_pages} page(s))", "success")
         except Exception as e:
             self.show_toast(f"Error: {str(e)}", "error")
     
