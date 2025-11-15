@@ -36,7 +36,7 @@ a = Analysis(
     binaries=tesseract_binaries,
     datas=[
         ('data', 'data'),
-        ('/usr/share/fonts/truetype/noto', 'fonts/noto'),
+        ('font', 'font'),
         ('setup_runtime.py', '.'),
     ] + tessdata_files,
     hiddenimports=[
