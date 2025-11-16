@@ -145,8 +145,8 @@ def process_queue():
                 # Create unique filenames
                 name_clean = name.replace(' ', '_')
                 timestamp = time.strftime('%Y%m%d_%H%M%S')
-                front_path = f"front_{name_clean}_{timestamp}.png"
-                back_path = f"back_{name_clean}_{timestamp}.png"
+                front_path = f"{name_clean}_front_{timestamp}.png"
+                back_path = f"{name_clean}_back_{timestamp}.png"
                 
                 front_template = get_resource_path("data/photo_2025-11-11_21-48-06.jpg")
                 back_template = get_resource_path("data/photo_2025-11-11_21-47-57.jpg")
