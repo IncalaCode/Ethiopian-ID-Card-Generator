@@ -36,19 +36,37 @@ pyzbar_binaries = []
 try:
     import pyzbar
     pyzbar_path = os.path.dirname(pyzbar.__file__)
-    dll_path = os.path.join(pyzbar_path, 'libzbar-64.dll')
-    if os.path.exists(dll_path):
-        pyzbar_binaries.append((dll_path, 'pyzbar'))
+    # Try multiple possible DLL locations
+    dll_locations = [
+        os.path.join(pyzbar_path, 'libzbar-64.dll'),
+        os.path.join(pyzbar_path, 'pyzbar', 'libzbar-64.dll'),
+        os.path.join(pyzbar_path, '..', 'pyzbar', 'libzbar-64.dll')
+    ]
+    for dll_path in dll_locations:
+        if os.path.exists(dll_path):
+            pyzbar_binaries.append((dll_path, '.'))
+            pyzbar_binaries.append((dll_path, 'pyzbar'))
+            pyzbar_binaries.append((dll_path, '_internal/pyzbar'))
+            break
 except ImportError:
     pass
 
-# Find Noto fonts on Windows
+# Find Noto fonts - use local font folder
 font_files = []
-windows_fonts = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts')
-for font_name in ['NotoSans-Regular.ttf', 'NotoSans-Bold.ttf', 'NotoSansEthiopic-Regular.ttf', 'NotoSansEthiopic-Bold.ttf']:
-    font_path = os.path.join(windows_fonts, font_name)
-    if os.path.exists(font_path):
-        font_files.append((font_path, 'fonts'))
+local_font_dir = 'font'
+if os.path.exists(local_font_dir):
+    for font_name in ['NotoSans-Regular.ttf', 'NotoSans-Bold.ttf', 'NotoSansEthiopic-Regular.ttf', 'NotoSansEthiopic-Bold.ttf']:
+        font_path = os.path.join(local_font_dir, font_name)
+        if os.path.exists(font_path):
+            font_files.append((font_path, 'font'))
+
+# Fallback to Windows system fonts
+if not font_files:
+    windows_fonts = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts')
+    for font_name in ['NotoSans-Regular.ttf', 'NotoSans-Bold.ttf', 'NotoSansEthiopic-Regular.ttf', 'NotoSansEthiopic-Bold.ttf']:
+        font_path = os.path.join(windows_fonts, font_name)
+        if os.path.exists(font_path):
+            font_files.append((font_path, 'font'))
 
 a = Analysis(
     ['web_server.py', 'setup_runtime.py'],
@@ -56,6 +74,7 @@ a = Analysis(
     binaries=tesseract_binaries + pyzbar_binaries,
     datas=[
         ('data', 'data'),
+        ('font', 'font'),
         ('setup_runtime.py', '.'),
     ] + tessdata_files + font_files,
     hiddenimports=[

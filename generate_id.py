@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import qrcode
 import os
+import sys
 import fitz
 import re
 try:
@@ -14,48 +15,76 @@ except Exception:
 from barcode import Code128
 from barcode.writer import ImageWriter
 
+# Fix pyzbar DLL loading for PyInstaller
+if hasattr(sys, '_MEIPASS'):
+    # Running in PyInstaller bundle
+    import ctypes
+    try:
+        # Try to load zbar library manually from various paths
+        zbar_paths = [
+            os.path.join(sys._MEIPASS, 'pyzbar', 'libzbar-64.dll'),
+            os.path.join(sys._MEIPASS, 'libzbar-64.dll'),
+            os.path.join(sys._MEIPASS, '_internal', 'pyzbar', 'libzbar-64.dll'),
+            os.path.join(os.path.dirname(sys.executable), 'libzbar-64.dll')
+        ]
+        for path in zbar_paths:
+            if os.path.exists(path):
+                ctypes.CDLL(path)
+                break
+    except Exception:
+        pass  # Will fall back to OCR
+
 class EthiopianIDGenerator:
     def __init__(self):
-        # Load fonts with larger sizes
-        self.am_font = self._load_font("/usr/share/fonts/truetype/noto/NotoSansEthiopic-Regular.ttf", 36)
-        self.am_font_bold = self._load_font("/usr/share/fonts/truetype/noto/NotoSansEthiopic-Bold.ttf", 36)
-        self.en_font = self._load_font("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf", 32)
-        self.en_font_bold = self._load_font("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf", 32)
+        # Load fonts with larger sizes from local font folder
+        self.am_font = self._load_font("NotoSansEthiopic-Regular.ttf", 36)
+        self.am_font_bold = self._load_font("NotoSansEthiopic-Bold.ttf", 36)
+        self.en_font = self._load_font("NotoSans-Regular.ttf", 32)
+        self.en_font_bold = self._load_font("NotoSans-Bold.ttf", 32)
         self.color = (0, 0, 0)  # Black color
         
         # Configuration arrays
         self.front_config = {
             'main_photo': {'x': 70, 'y': 180, 'w': 420, 'h': 575},
-            'small_photo': {'x': 1000, 'y': 640, 'w': 100, 'h': 100},
+            'small_photo': {'x': 1040, 'y': 600, 'w': 100, 'h': 140},
             'name_am': {'x': 520, 'y': 230, 'font': 'NotoSansEthiopic-Bold.ttf', 'size': 40, 'color': (0, 0, 0)},
             'name_en': {'x': 520, 'y': 265, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
             # separate Amharic and English positions so both are not drawn at the same place
-            'dob_am': {'x': 520, 'y': 365, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
-            'dob': {'x': 520, 'y': 390, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
+            'dob_am': {'x': 520, 'y': 365, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
+            'dob': {'x': 520, 'y': 390, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
             'sex_am': {'x': 520, 'y': 445, 'font': 'NotoSansEthiopic-Bold.ttf', 'size': 38, 'color': (0, 0, 0)},
-            'sex': {'x': 520, 'y': 470, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
-            'expiry_ec': {'x': 520, 'y': 565, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
-            'expiry_gc': {'x': 520, 'y': 560, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
+            'sex': {'x': 520, 'y': 470, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
+            'expiry_ec': {'x': 520, 'y': 565, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
+            'expiry_gc': {'x': 520, 'y': 560, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
             'id_number': {'x': 620, 'y': 620, 'font': 'NotoSans-Bold.ttf', 'size': 26, 'color': (0, 0, 0)},
             'barcode': {'x': 580, 'y': 650, 'w': 350, 'h': 80},
-            'issue_date_ec': {'x': 25, 'y': 20, 'font': 'NotoSans-Bold.ttf', 'size': 28, 'color': (0, 0, 0)},
-            'issue_date_gc': {'x': 25, 'y': 340,'font': 'NotoSans-Bold.ttf', 'size': 28, 'color': (0, 0, 0)}
+            'issue_date_gc': {'x': 25, 'y': 20, 'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)},
+            'issue_date_ec': {'x': 25, 'y': 340,'font': 'NotoSans-Bold.ttf', 'size': 24, 'color': (0, 0, 0)}
         }
         
         self.back_config = {
-            'qr_code': {'x': 580, 'y': 30, 'size': 680},
-            'phone': {'x': 50, 'y': 100, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
-            'nationality': {'x': 50, 'y': 210, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color': (0, 0, 0)},
-            'address': {'x': 50, 'y': 310, 'font': 'NotoSans-Bold.ttf', 'size': 36, 'color':  (0, 0, 0)},
-            'fin': {'x': 140, 'y': 660, 'font': 'NotoSans-Bold.ttf', 'size': 26, 'color': (0, 0, 0)},
-            'sn': {'x': 1050, 'y': 720, 'font': 'NotoSans-Bold.ttf', 'size': 28, 'color': (0, 0, 0)}
+            'qr_code': {'x': 595, 'y': 47, 'size': 635},
+            'phone': {'x': 50, 'y': 100, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
+            'nationality': {'x': 50, 'y': 210, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
+            'address': {'x': 50, 'y': 310, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color':  (0, 0, 0)},
+            'fin': {'x': 132, 'y': 655, 'font': 'NotoSans-Regular.ttf', 'size': 27, 'color': (0, 0, 0)},
+            'sn': {'x': 1050, 'y': 720, 'font': 'NotoSans-Regular.ttf', 'size': 28, 'color': (0, 0, 0)}
         }
     
     def _load_font(self, font_name, size):
-        try:
-            return ImageFont.truetype(f"/usr/share/fonts/truetype/noto/{font_name}", size)
-        except:
-            return ImageFont.load_default()
+        font_paths = [
+            os.path.join("font", font_name),
+            os.path.join(os.path.dirname(__file__), "font", font_name),
+            f"/usr/share/fonts/truetype/noto/{font_name}"
+        ]
+        
+        for path in font_paths:
+            try:
+                if os.path.exists(path):
+                    return ImageFont.truetype(path, size)
+            except:
+                continue
+        return ImageFont.load_default()
     
     def _draw_bilingual(self, draw, am_text, en_text, pos):
         """Draw Amharic above English"""
@@ -241,7 +270,16 @@ class EthiopianIDGenerator:
                         except Exception as ocr_e:
                             print(f"  ✗ OCR fallback failed: {ocr_e}")
                     except Exception as e:
-                        print(f"  ✗ pyzbar error: {e}")
+                        print(f"  ⚠ pyzbar error (using OCR fallback): {str(e)[:100]}...")
+                        # Use OCR as fallback if pyzbar fails
+                        try:
+                            import pytesseract
+                            ocr_result = pytesseract.image_to_string(gray, config='--psm 6')
+                            if ocr_result.strip():
+                                decoded_text = ocr_result.strip()
+                                print(f"  ✓ Extracted text using OCR (may not be QR data)")
+                        except Exception as ocr_e:
+                            print(f"  ✗ OCR fallback failed: {ocr_e}")
                 
                 if decoded_text:
                     qr_data = decoded_text
@@ -289,25 +327,24 @@ class EthiopianIDGenerator:
             font = self._load_font(cfg['font'], cfg['size'])
             draw.text((cfg['x'], cfg['y']), data['nationality'], font=font, fill=cfg['color'])
         
-        # Draw address (Amharic above, English below)
+        # Draw address in sandwich format (AM, EN, AM, EN...)
         cfg = self.back_config['address']
         font_am = self._load_font('NotoSansEthiopic-Bold.ttf', cfg['size'])
         font_en = self._load_font(cfg['font'], cfg['size'])
         y = cfg['y']
         
-        # Draw Amharic address first
-        addr_am = data.get('address_am', '')
-        if addr_am:
-            for line in addr_am.split('\n'):
-                draw.text((cfg['x'], y), line, font=font_am, fill=cfg['color'])
-                y += 30
+        addr_am_lines = data.get('address_am', '').split('\n') if data.get('address_am') else []
+        addr_en_lines = data.get('address', '').split('\n') if data.get('address') else []
         
-        # Draw English address below
-        addr_en = data.get('address', '')
-        if addr_en:
-            for line in addr_en.split('\n'):
-                draw.text((cfg['x'], y), line, font=font_en, fill=cfg['color'])
-                y += 30
+        # Alternate between AM and EN lines
+        max_lines = max(len(addr_am_lines), len(addr_en_lines))
+        for i in range(max_lines):
+            if i < len(addr_am_lines) and addr_am_lines[i].strip():
+                draw.text((cfg['x'], y), addr_am_lines[i], font=font_am, fill=cfg['color'])
+                y += 34
+            if i < len(addr_en_lines) and addr_en_lines[i].strip():
+                draw.text((cfg['x'], y), addr_en_lines[i], font=font_en, fill=cfg['color'])
+                y += 40
         
         # Draw SN
         cfg = self.back_config['sn']
@@ -548,11 +585,17 @@ def extract_from_pdf(pdf_path):
         
         data.setdefault('nationality', nationality_en)
         data.setdefault('nationality_am', nationality_am)
-        # Use ID number as FIN if not found, and clean it
+        # Use ID number as FIN if not found, add FIN prefix and keep 12 digits
         if not data.get('fin'):
-            data['fin'] = data.get('id_number', '')
-        if data.get('fin'):
-            data['fin'] = ' '.join(data['fin'].split())
+            id_num = data.get('id_number', '')
+            if id_num:
+                # Extract only digits and take first 12
+                digits = ''.join(filter(str.isdigit, id_num))
+                if len(digits) >= 12:
+                    fin_digits = digits[:12]
+                    data['fin'] = f"FIN {fin_digits[:4]} {fin_digits[4:8]} {fin_digits[8:12]}"
+                else:
+                    data['fin'] = f"FIN {digits.ljust(12, '0')[:4]} {digits.ljust(12, '0')[4:8]} {digits.ljust(12, '0')[8:12]}"
         data.setdefault('fin', '')
         
         # Generate SN from FIN (7 digits)
@@ -629,13 +672,16 @@ def extract_from_pdf(pdf_path):
                 fin_text_clean = fin_text.replace('\n', ' ').replace('\r', ' ')
                 fin_match = re.search(r'FIN[^\d]*(\d{4})[^\d]*(\d{4})[^\d]*(\d{4})[^\d]*(\d{4})', fin_text_clean)
                 if fin_match:
-                    data['fin'] = f"{fin_match.group(1)} {fin_match.group(2)} {fin_match.group(3)} {fin_match.group(4)}"
+                    # Take only first 12 digits and add FIN prefix
+                    fin_digits = fin_match.group(1) + fin_match.group(2) + fin_match.group(3)
+                    data['fin'] = f"FIN {fin_digits[:4]} {fin_digits[4:8]} {fin_digits[8:12]}"
                     print(f"  ✓ Found FIN: {data['fin']}")
                 else:
-                    # Fallback: look for any 16-digit pattern
+                    # Fallback: look for any 16-digit pattern, take first 12
                     fin_match = re.search(r'(\d{4})[^\d]*(\d{4})[^\d]*(\d{4})[^\d]*(\d{4})', fin_text_clean)
                     if fin_match:
-                        data['fin'] = f"{fin_match.group(1)} {fin_match.group(2)} {fin_match.group(3)} {fin_match.group(4)}"
+                        fin_digits = fin_match.group(1) + fin_match.group(2) + fin_match.group(3)
+                        data['fin'] = f"FIN {fin_digits[:4]} {fin_digits[4:8]} {fin_digits[8:12]}"
                         print(f"  ✓ Found FIN (fallback): {data['fin']}")
             except Exception as e:
                 print(f"  ✗ Could not extract FIN: {e}")
@@ -726,7 +772,7 @@ def extract_from_pdf(pdf_path):
                 issue_match = re.search(r'(?:Date of [ILil1][sl]sue|[ILil1][sl]sue)[^\d]*(\d{4}/\d{2}/\d{2})\s*[|\s]*(\d{4}\s*/\s*[A-Za-z0O]{3,4}\s*/\s*\d{1,2})', ocr_text, re.IGNORECASE)
                 if issue_match:
                     issue_gc = issue_match.group(1)
-                    issue_ec = issue_match.group(2).replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
+                    issue_ec_raw = issue_match.group(2).replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
                     
                     # Convert issue_gc to month name format
                     parts = issue_gc.split('/')
@@ -737,7 +783,16 @@ def extract_from_pdf(pdf_path):
                     else:
                         data['issue_date_gc'] = issue_gc
                     
-                    data['issue_date_ec'] = issue_ec
+                    # Convert issue_date_ec to numeric format (yyyy/mm/dd)
+                    ec_parts = issue_ec_raw.split('/')
+                    if len(ec_parts) == 3:
+                        year, month_name, day = ec_parts
+                        month_map = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
+                                   'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
+                        month_num = month_map.get(month_name, '01')
+                        data['issue_date_ec'] = f"{year}/{month_num}/{day.zfill(2)}"
+                    else:
+                        data['issue_date_ec'] = issue_ec_raw
                     print(f"  ✓ Issue Date GC: {data['issue_date_gc']}")
                     print(f"  ✓ Issue Date EC: {data['issue_date_ec']}")
                 else:
@@ -761,7 +816,17 @@ def extract_from_pdf(pdf_path):
                     dates_with_month = re.findall(r'(\d{4}\s*/\s*[A-Za-z]{3,4}\s*/\s*\d{1,2})', ocr_text)
                     print(f"  All dates with month names: {dates_with_month}")
                     if len(dates_with_month) >= 2:
-                        data['issue_date_ec'] = dates_with_month[1].replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
+                        ec_date_raw = dates_with_month[1].replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
+                        # Convert to numeric format
+                        ec_parts = ec_date_raw.split('/')
+                        if len(ec_parts) == 3:
+                            year, month_name, day = ec_parts
+                            month_map = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
+                                       'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
+                            month_num = month_map.get(month_name, '01')
+                            data['issue_date_ec'] = f"{year}/{month_num}/{day.zfill(2)}"
+                        else:
+                            data['issue_date_ec'] = ec_date_raw
                         print(f"  ✓ Issue Date EC (fallback): {data['issue_date_ec']}")
                 
                 # If still no expiry dates found, set defaults
@@ -781,6 +846,37 @@ def extract_from_pdf(pdf_path):
                 print(f"  Error details: {traceback.format_exc()}")
     
     doc.close()
+    
+    # Swap issue dates and ensure correct formats
+    if data.get('issue_date_ec') and data.get('issue_date_gc'):
+        temp_ec = data['issue_date_ec']
+        temp_gc = data['issue_date_gc']
+        
+        # EC should get the date with month names converted to numbers
+        if any(c.isalpha() for c in temp_gc):
+            ec_parts = temp_gc.split('/')
+            if len(ec_parts) == 3:
+                year, month_name, day = ec_parts
+                month_map = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
+                           'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
+                month_num = month_map.get(month_name, '01')
+                data['issue_date_ec'] = f"{year}/{month_num}/{day.zfill(2)}"
+            else:
+                data['issue_date_ec'] = temp_gc
+        else:
+            data['issue_date_ec'] = temp_gc
+        
+        # GC should get the numeric date converted to month names
+        if temp_ec.replace('/', '').replace(' ', '').isdigit():
+            gc_parts = temp_ec.split('/')
+            if len(gc_parts) == 3:
+                months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                month_name = months[int(gc_parts[1]) - 1]
+                data['issue_date_gc'] = f"{gc_parts[0]}/{month_name}/{gc_parts[2]}"
+            else:
+                data['issue_date_gc'] = temp_ec
+        else:
+            data['issue_date_gc'] = temp_ec
     
     print("\n" + "="*60)
     print("FINAL EXTRACTED DATA:")
