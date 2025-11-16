@@ -31,33 +31,38 @@ for tess_path in tesseract_paths:
                     tessdata_files.append((lang_path, 'tessdata'))
         break
 
-# Find pyzbar DLL with comprehensive search
+# Find pyzbar DLL and dependencies
 pyzbar_binaries = []
 try:
     import pyzbar
-    import site
+    pyzbar_path = os.path.dirname(pyzbar.__file__)
     
-    # Search in multiple locations
-    search_paths = [
-        os.path.dirname(pyzbar.__file__),
-        os.path.join(os.path.dirname(pyzbar.__file__), 'pyzbar'),
-    ] + site.getsitepackages()
-    
+    # Find the main DLL
     dll_names = ['libzbar-64.dll', 'libzbar.dll', 'zbar.dll']
+    main_dll = None
     
-    for search_path in search_paths:
-        for dll_name in dll_names:
-            dll_path = os.path.join(search_path, dll_name)
-            if os.path.exists(dll_path):
-                # Add to multiple locations to ensure it's found
-                pyzbar_binaries.extend([
-                    (dll_path, '.'),
-                    (dll_path, 'pyzbar'),
-                    (dll_path, 'lib'),
-                ])
-                break
-        if pyzbar_binaries:
+    for dll_name in dll_names:
+        dll_path = os.path.join(pyzbar_path, dll_name)
+        if os.path.exists(dll_path):
+            main_dll = dll_path
             break
+    
+    if main_dll:
+        # Add main DLL to root and pyzbar folder
+        pyzbar_binaries.extend([
+            (main_dll, '.'),
+            (main_dll, 'pyzbar'),
+        ])
+        
+        # Also look for any other DLLs in pyzbar directory
+        for file in os.listdir(pyzbar_path):
+            if file.endswith('.dll'):
+                dll_full_path = os.path.join(pyzbar_path, file)
+                pyzbar_binaries.extend([
+                    (dll_full_path, '.'),
+                    (dll_full_path, 'pyzbar'),
+                ])
+                
 except ImportError:
     pass
 
@@ -103,6 +108,8 @@ a = Analysis(
         'pytesseract',
         'pyzbar',
         'pyzbar.pyzbar',
+        'pyzbar.wrapper',
+        'pyzbar.zbar_library',
         'convertdate',
         'pkg_resources.py2_warn',
     ],

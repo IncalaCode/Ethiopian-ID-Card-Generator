@@ -20,6 +20,9 @@ if hasattr(sys, '_MEIPASS'):
     # Running in PyInstaller bundle
     import ctypes
     try:
+        # Set pyzbar library path environment variable
+        os.environ['PYZBAR_LIBRARY_PATH'] = sys._MEIPASS
+        
         # Add all possible DLL locations to PATH
         dll_dirs = [
             sys._MEIPASS,
@@ -28,22 +31,29 @@ if hasattr(sys, '_MEIPASS'):
             os.path.dirname(sys.executable)
         ]
         
+        # Update PATH environment variable
+        current_path = os.environ.get('PATH', '')
         for dll_dir in dll_dirs:
             if os.path.exists(dll_dir):
-                os.environ['PATH'] = dll_dir + os.pathsep + os.environ.get('PATH', '')
+                os.environ['PATH'] = dll_dir + os.pathsep + current_path
+                current_path = os.environ['PATH']
         
-        # Try to preload DLL
+        # Try to preload DLL with full path
         dll_names = ['libzbar-64.dll', 'libzbar.dll', 'zbar.dll']
         for dll_dir in dll_dirs:
             for dll_name in dll_names:
                 dll_path = os.path.join(dll_dir, dll_name)
                 if os.path.exists(dll_path):
                     try:
+                        # Load with full path
                         ctypes.CDLL(dll_path)
+                        print(f"  ✓ Preloaded {dll_name} from {dll_path}")
                         break
-                    except:
+                    except Exception as e:
+                        print(f"  ⚠ Failed to preload {dll_name}: {e}")
                         continue
-    except Exception:
+    except Exception as e:
+        print(f"  ⚠ DLL setup failed: {e}")
         pass  # Will fall back to OCR
 
 class EthiopianIDGenerator:
