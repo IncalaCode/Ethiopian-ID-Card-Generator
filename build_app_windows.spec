@@ -31,22 +31,32 @@ for tess_path in tesseract_paths:
                     tessdata_files.append((lang_path, 'tessdata'))
         break
 
-# Find pyzbar DLL
+# Find pyzbar DLL with comprehensive search
 pyzbar_binaries = []
 try:
     import pyzbar
-    pyzbar_path = os.path.dirname(pyzbar.__file__)
-    # Try multiple possible DLL locations
-    dll_locations = [
-        os.path.join(pyzbar_path, 'libzbar-64.dll'),
-        os.path.join(pyzbar_path, 'pyzbar', 'libzbar-64.dll'),
-        os.path.join(pyzbar_path, '..', 'pyzbar', 'libzbar-64.dll')
-    ]
-    for dll_path in dll_locations:
-        if os.path.exists(dll_path):
-            pyzbar_binaries.append((dll_path, '.'))
-            pyzbar_binaries.append((dll_path, 'pyzbar'))
-            pyzbar_binaries.append((dll_path, '_internal/pyzbar'))
+    import site
+    
+    # Search in multiple locations
+    search_paths = [
+        os.path.dirname(pyzbar.__file__),
+        os.path.join(os.path.dirname(pyzbar.__file__), 'pyzbar'),
+    ] + site.getsitepackages()
+    
+    dll_names = ['libzbar-64.dll', 'libzbar.dll', 'zbar.dll']
+    
+    for search_path in search_paths:
+        for dll_name in dll_names:
+            dll_path = os.path.join(search_path, dll_name)
+            if os.path.exists(dll_path):
+                # Add to multiple locations to ensure it's found
+                pyzbar_binaries.extend([
+                    (dll_path, '.'),
+                    (dll_path, 'pyzbar'),
+                    (dll_path, 'lib'),
+                ])
+                break
+        if pyzbar_binaries:
             break
 except ImportError:
     pass
@@ -96,7 +106,7 @@ a = Analysis(
         'convertdate',
         'pkg_resources.py2_warn',
     ],
-    hookspath=[],
+    hookspath=['.'],
     hooksconfig={},
     runtime_hooks=['setup_runtime.py'],
     excludes=[],
@@ -123,7 +133,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # No console window
+    console=True,  # Show console for testing
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

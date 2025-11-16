@@ -20,22 +20,29 @@ if hasattr(sys, '_MEIPASS'):
     # Running in PyInstaller bundle
     import ctypes
     try:
-        # Set environment variable for pyzbar to find DLL
-        pyzbar_dll_path = os.path.join(sys._MEIPASS, 'pyzbar')
-        if os.path.exists(pyzbar_dll_path):
-            os.environ['PATH'] = pyzbar_dll_path + os.pathsep + os.environ.get('PATH', '')
-        
-        # Try to load zbar library manually from various paths
-        zbar_paths = [
-            os.path.join(sys._MEIPASS, 'pyzbar', 'libzbar-64.dll'),
-            os.path.join(sys._MEIPASS, 'libzbar-64.dll'),
-            os.path.join(sys._MEIPASS, '_internal', 'pyzbar', 'libzbar-64.dll'),
-            os.path.join(os.path.dirname(sys.executable), 'libzbar-64.dll')
+        # Add all possible DLL locations to PATH
+        dll_dirs = [
+            sys._MEIPASS,
+            os.path.join(sys._MEIPASS, 'pyzbar'),
+            os.path.join(sys._MEIPASS, 'lib'),
+            os.path.dirname(sys.executable)
         ]
-        for path in zbar_paths:
-            if os.path.exists(path):
-                ctypes.CDLL(path)
-                break
+        
+        for dll_dir in dll_dirs:
+            if os.path.exists(dll_dir):
+                os.environ['PATH'] = dll_dir + os.pathsep + os.environ.get('PATH', '')
+        
+        # Try to preload DLL
+        dll_names = ['libzbar-64.dll', 'libzbar.dll', 'zbar.dll']
+        for dll_dir in dll_dirs:
+            for dll_name in dll_names:
+                dll_path = os.path.join(dll_dir, dll_name)
+                if os.path.exists(dll_path):
+                    try:
+                        ctypes.CDLL(dll_path)
+                        break
+                    except:
+                        continue
     except Exception:
         pass  # Will fall back to OCR
 
@@ -273,10 +280,19 @@ class EthiopianIDGenerator:
                                 decoded_text = ocr_result.strip()
                                 print(f"  ✓ Extracted text using OCR (may not be QR data)")
                         except Exception as ocr_e:
+                            import traceback
                             print(f"  ✗ OCR fallback failed: {ocr_e}")
+                            print(f"  OCR error details: {traceback.format_exc()}")
                     except Exception as e:
-                        print(f"  ⚠ pyzbar error (using OCR fallback)")
-                        # Use OCR as fallback if pyzbar fails
+                        import traceback
+                        error_details = traceback.format_exc()
+                        print(f"  ⚠ pyzbar error: {str(e)}")
+                        print(f"  Full error details:")
+                        print(error_details)
+                        print(f"  Falling back to OCR...")
+                    
+                    # Use OCR as fallback
+                    if not decoded_text:
                         try:
                             import pytesseract
                             ocr_result = pytesseract.image_to_string(gray, config='--psm 6')
@@ -284,7 +300,9 @@ class EthiopianIDGenerator:
                                 decoded_text = ocr_result.strip()
                                 print(f"  ✓ Extracted text using OCR (may not be QR data)")
                         except Exception as ocr_e:
+                            import traceback
                             print(f"  ✗ OCR fallback failed: {ocr_e}")
+                            print(f"  OCR error details: {traceback.format_exc()}")
                 
                 if decoded_text:
                     qr_data = decoded_text
