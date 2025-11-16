@@ -19,7 +19,7 @@ if exist dist rmdir /s /q dist
 
 REM Build the application
 echo Building application...
-pyinstaller build_app.spec
+pyinstaller build_app_windows.spec
 
 REM Check if build was successful
 if exist "dist\EthiopianIDGenerator.exe" (

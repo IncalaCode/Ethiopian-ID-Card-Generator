@@ -20,6 +20,11 @@ if hasattr(sys, '_MEIPASS'):
     # Running in PyInstaller bundle
     import ctypes
     try:
+        # Set environment variable for pyzbar to find DLL
+        pyzbar_dll_path = os.path.join(sys._MEIPASS, 'pyzbar')
+        if os.path.exists(pyzbar_dll_path):
+            os.environ['PATH'] = pyzbar_dll_path + os.pathsep + os.environ.get('PATH', '')
+        
         # Try to load zbar library manually from various paths
         zbar_paths = [
             os.path.join(sys._MEIPASS, 'pyzbar', 'libzbar-64.dll'),
@@ -270,7 +275,7 @@ class EthiopianIDGenerator:
                         except Exception as ocr_e:
                             print(f"  ✗ OCR fallback failed: {ocr_e}")
                     except Exception as e:
-                        print(f"  ⚠ pyzbar error (using OCR fallback): {str(e)[:100]}...")
+                        print(f"  ⚠ pyzbar error (using OCR fallback)")
                         # Use OCR as fallback if pyzbar fails
                         try:
                             import pytesseract
