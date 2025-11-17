@@ -11,6 +11,19 @@ import sys
 import threading
 import queue
 import time
+import socket
+
+def get_local_ip():
+    """Get local IP address for network access"""
+    try:
+        # Connect to a remote address to determine local IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
 
 def get_resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -205,9 +218,26 @@ class DataViewerUI:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         
-        # Top: Save path
+        # Top: URLs
+        url_frame = ttk.Frame(main_frame)
+        url_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        local_ip = get_local_ip()
+        local_url = "http://127.0.0.1:5000"
+        network_url = f"http://{local_ip}:5000"
+        
+        
+        ttk.Label(url_frame, text="📱 Network:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=(15, 5))
+        
+        # Network URL
+        network_entry = tk.Entry(url_frame, width=25, font=('Arial', 9))
+        network_entry.insert(0, network_url)
+        network_entry.config(state='readonly')
+        network_entry.pack(side=tk.LEFT, padx=5)
+        
+        # Save path
         path_frame = ttk.Frame(main_frame)
-        path_frame.pack(fill=tk.X, pady=(0, 10))
+        path_frame.pack(fill=tk.X, pady=(10, 10))
         ttk.Label(path_frame, text="Save Path:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=5)
         self.save_path = tk.StringVar(value="output")
         ttk.Entry(path_frame, textvariable=self.save_path, width=50).pack(side=tk.LEFT, padx=5)
@@ -540,9 +570,12 @@ if __name__ == '__main__':
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     
+    local_ip = get_local_ip()
     print("="*60)
-    print("Server started on http://0.0.0.0:5000")
-    print("Upload files to: http://0.0.0.0:5000/upload")
+    print("🌐 Ethiopian ID Generator Server Started")
+    print(f"Local:   http://127.0.0.1:5000")
+    print(f"Network: http://{local_ip}:5000")
+    print("📱 Access from phones/tablets using the Network URL")
     print("="*60)
     
     # Start Tkinter UI

@@ -86,9 +86,9 @@ class EthiopianIDGenerator:
         
         self.back_config = {
             'qr_code': {'x': 595, 'y': 47, 'size': 635},
-            'phone': {'x': 50, 'y': 100, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
-            'nationality': {'x': 50, 'y': 210, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color': (0, 0, 0)},
-            'address': {'x': 50, 'y': 310, 'font': 'NotoSans-Bold.ttf', 'size': 34, 'color':  (0, 0, 0)},
+            'phone': {'x': 50, 'y': 100, 'font': 'NotoSans-Bold.ttf', 'size': 30, 'color': (0, 0, 0)},
+            'nationality': {'x': 50, 'y': 210, 'font': 'NotoSans-Bold.ttf', 'size': 27, 'color': (0, 0, 0)},
+            'address': {'x': 50, 'y': 290, 'font': 'NotoSans-Bold.ttf', 'size': 29, 'color':  (0, 0, 0)},
             'fin': {'x': 132, 'y': 655, 'font': 'NotoSans-Regular.ttf', 'size': 27, 'color': (0, 0, 0)},
             'sn': {'x': 1050, 'y': 720, 'font': 'NotoSans-Regular.ttf', 'size': 28, 'color': (0, 0, 0)}
         }
@@ -354,22 +354,23 @@ class EthiopianIDGenerator:
             am_bbox = draw.textbbox((cfg['x'], cfg['y']), nationality_am, font=font_am)
             am_width = am_bbox[2] - am_bbox[0]
             font_en = self._load_font(cfg['font'], cfg['size'])
-            draw.text((cfg['x'] + am_width + 10, cfg['y']), f" | {nationality_en}", font=font_en, fill=cfg['color'])
+            draw.text((cfg['x'] + am_width + 10, cfg['y']), f"| {nationality_en}", font=font_en, fill=cfg['color'])
         else:
             cfg = self.back_config['nationality']
             font = self._load_font(cfg['font'], cfg['size'])
             draw.text((cfg['x'], cfg['y']), data['nationality'], font=font, fill=cfg['color'])
         
-        # Draw address in sandwich format (AM, EN, AM, EN...)
+        # Draw address - split by newlines and display each component
         cfg = self.back_config['address']
         font_am = self._load_font('NotoSansEthiopic-Bold.ttf', cfg['size'])
         font_en = self._load_font(cfg['font'], cfg['size'])
         y = cfg['y']
         
+        # Split address by newlines to get individual components
         addr_am_lines = data.get('address_am', '').split('\n') if data.get('address_am') else []
         addr_en_lines = data.get('address', '').split('\n') if data.get('address') else []
         
-        # Alternate between AM and EN lines
+        # Display each address component on separate lines
         max_lines = max(len(addr_am_lines), len(addr_en_lines))
         for i in range(max_lines):
             if i < len(addr_am_lines) and addr_am_lines[i].strip():
@@ -565,47 +566,43 @@ def extract_from_pdf(pdf_path):
         if sex_am:
             data['sex_am'] = sex_am
         
-        # Extract address - find region, city, woreda dynamically
+        # Extract address - find region, subcity/zone, woreda dynamically
         print("\n--- Searching for address ---")
         addr_am = []
         addr_en = []
         
-        # Find region - look for Amharic text in lines 50-56
-        for i in range(50, min(57, len(lines))):
-            am_parts = re.findall(r'[\u1200-\u137F]+', lines[i])
-            if am_parts and len(lines[i].strip()) > 2 and '/' not in lines[i]:
-                # Check if next line has English equivalent
-                if i + 1 < len(lines) and re.search(r'^[A-Z][a-z]+', lines[i+1]):
-                    addr_am.append(lines[i].strip())
-                    addr_en.append(lines[i+1].strip())
-                    print(f"  ✓ Found region - AM: {lines[i].strip()}, EN: {lines[i+1].strip()}")
-                    break
+        # Look for address components in lines 50-56
+        address_pairs = []
+        i = 50
+        while i < min(57, len(lines)):
+            line = lines[i].strip()
+            am_parts = re.findall(r'[\u1200-\u137F]+', line)
+            
+            # Skip empty lines or lines with dates/numbers
+            if not am_parts or len(line) < 2 or '/' in line or re.search(r'\d{4}', line):
+                i += 1
+                continue
+            
+            # Check if next line has English equivalent
+            if i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
+                if re.search(r'^[A-Z][a-z]+', next_line) and not re.search(r'\d', next_line):
+                    address_pairs.append((line, next_line))
+                    print(f"  ✓ Found address pair - AM: {line}, EN: {next_line}")
+                    i += 2  # Skip both lines
+                    continue
+            i += 1
         
-        # Find city - continue from where we left off
-        for i in range(50, min(57, len(lines))):
-            if i in [j for j in range(50, 57)]:
-                am_parts = re.findall(r'[\u1200-\u137F]+', lines[i])
-                if am_parts and 'ከተማ' in lines[i] and '/' not in lines[i]:
-                    if i + 1 < len(lines) and 'City' in lines[i+1]:
-                        addr_am.append(lines[i].strip())
-                        addr_en.append(lines[i+1].strip())
-                        print(f"  ✓ Found city - AM: {lines[i].strip()}, EN: {lines[i+1].strip()}")
-                        break
+        # Extract address components
+        for am_text, en_text in address_pairs:
+            addr_am.append(am_text)
+            addr_en.append(en_text)
         
-        # Find woreda - look for remaining Amharic/English pairs (line 54-55)
-        for i in range(54, min(56, len(lines))):
-            am_parts = re.findall(r'[\u1200-\u137F]+', lines[i])
-            if am_parts and len(lines[i].strip()) > 1:
-                if i + 1 < len(lines) and re.search(r'^[A-Z]', lines[i+1].strip()):
-                    addr_am.append(lines[i].strip())
-                    addr_en.append(lines[i+1].strip())
-                    print(f"  ✓ Found woreda - AM: {lines[i].strip()}, EN: {lines[i+1].strip()}")
-                    break
-        
+        # Format address properly - join with newlines for proper display
         if addr_en:
-            data['address'] = '\n'.join(addr_en)
+            data['address'] = '\n'.join(addr_en)  # Separate lines
         if addr_am:
-            data['address_am'] = '\n'.join(addr_am)
+            data['address_am'] = '\n'.join(addr_am)  # Separate lines
         
         # Extract nationality in both languages
         nationality_am = ''
