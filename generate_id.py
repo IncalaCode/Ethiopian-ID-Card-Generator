@@ -600,9 +600,21 @@ def extract_from_pdf(pdf_path):
         
         # Format address properly - join with newlines for proper display
         if addr_en:
-            data['address'] = '\n'.join(addr_en)  # Separate lines
+            # Remove everything after dash (-) including the dash
+            cleaned_addr_en = []
+            for addr in addr_en:
+                if '-' in addr:
+                    addr = addr.split('-')[0].strip()
+                cleaned_addr_en.append(addr)
+            data['address'] = '\n'.join(cleaned_addr_en)  # Separate lines
         if addr_am:
-            data['address_am'] = '\n'.join(addr_am)  # Separate lines
+            # Remove everything after dash (-) including the dash
+            cleaned_addr_am = []
+            for addr in addr_am:
+                if '-' in addr:
+                    addr = addr.split('-')[0].strip()
+                cleaned_addr_am.append(addr)
+            data['address_am'] = '\n'.join(cleaned_addr_am)  # Separate lines
         
         # Extract nationality in both languages
         nationality_am = ''
