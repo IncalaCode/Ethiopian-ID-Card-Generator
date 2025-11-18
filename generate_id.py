@@ -948,6 +948,7 @@ def extract_from_pdf(pdf_path):
                     month_num = month_map.get(month_name, 1)
                     ec_year = gc_year - 8
                     data['issue_date_ec'] = f"{ec_year}/{month_num:02d}/{gc_day:02d}"
+                    # Keep GC date as is
             else:  # GC is numeric
                 gc_parts = gc_date.split('/')
                 if len(gc_parts) == 3:
