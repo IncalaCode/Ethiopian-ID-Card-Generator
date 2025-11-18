@@ -651,20 +651,13 @@ def extract_from_pdf(pdf_path):
         if data.get('expiry_gc'):
             data['expiry_gc'] = data['expiry_gc'].replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20')
             print(f"  ✓ Fixed Expiry GC: {data['expiry_gc']}")
-        # Set defaults if still missing - ensure different formats
-        if not data.get('issue_date_ec') or data.get('issue_date_ec') in ['', None]:
-            from datetime import datetime
-            current_date = datetime.now()
-            data['issue_date_ec'] = f"{current_date.year}/{current_date.month:02d}/{current_date.day:02d}"
-            print(f"\n  ⚠ WARNING: Issue Date EC not found in PDF, using current date: {data['issue_date_ec']}")
-        
-        if not data.get('issue_date_gc') or data.get('issue_date_gc') in ['', None]:
-            from datetime import datetime
-            current_date = datetime.now()
-            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-            month_name = months[current_date.month - 1]
-            data['issue_date_gc'] = f"{current_date.year}/{month_name}/{current_date.day:02d}"
-            print(f"  ⚠ WARNING: Issue Date GC not found in PDF, using current date: {data['issue_date_gc']}")
+        # Set defaults if still missing
+        if not data.get('issue_date_ec'):
+            data['issue_date_ec'] = ''
+            print(f"\n  ⚠ WARNING: Issue Date EC not found in PDF")
+        if not data.get('issue_date_gc'):
+            data['issue_date_gc'] = ''
+            print(f"  ⚠ WARNING: Issue Date GC not found in PDF")
         data.setdefault('id_number', '')
         data.setdefault('phone', '')
         data.setdefault('address', '')
@@ -807,57 +800,31 @@ def extract_from_pdf(pdf_path):
                 
                 # Extract issue date - look for "Date of Issue" or "issue" (case insensitive, handle OCR errors like 'lssue')
                 issue_match = re.search(r'(?:Date of [ILil1][sl]sue|[ILil1][sl]sue)[^\d]*(\d{4}/\d{2}/\d{2})\s*[|\s]*(\d{4}\s*/\s*[A-Za-z0O]{3,4}\s*/\s*\d{1,2})', ocr_text, re.IGNORECASE)
-                
-                # Also try alternative patterns for issue date
-                if not issue_match:
-                    # Look for pattern like "የተሰጠበት ቀን | Date of Issue 2018/03/06 | 2025/Nov/ 15"
-                    issue_match = re.search(r'(\d{4}/\d{2}/\d{2})\s*[|\s]*(\d{4}/[A-Za-z]{3,4}/\s*\d{1,2})', ocr_text)
-                    if issue_match:
-                        # Check if this looks like an issue date (not DOB or expiry)
-                        try:
-                            year = int(issue_match.group(1).split('/')[0])
-                            if 2015 <= year <= 2025:  # Issue dates should be in this range
-                                pass  # Use this match
-                            else:
-                                issue_match = None
-                        except (ValueError, IndexError):
-                            issue_match = None
                 if issue_match:
-                    try:
-                        issue_gc = issue_match.group(1)
-                        issue_ec_raw = issue_match.group(2).replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
-                        
-                        # Convert issue_gc to month name format
-                        parts = issue_gc.split('/')
-                        if len(parts) == 3:
-                            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                            month_name = months[int(parts[1]) - 1]
-                            data['issue_date_gc'] = f"{parts[0]}/{month_name}/{parts[2]}"
-                        else:
-                            data['issue_date_gc'] = issue_gc
-                        
-                        # Convert issue_date_ec to numeric format (yyyy/mm/dd)
-                        ec_parts = issue_ec_raw.split('/')
-                        if len(ec_parts) == 3:
-                            year, month_name, day = ec_parts
-                            month_map = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
-                                       'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
-                            month_num = month_map.get(month_name, '01')
-                            data['issue_date_ec'] = f"{year}/{month_num}/{day.zfill(2)}"
-                        else:
-                            data['issue_date_ec'] = issue_ec_raw
-                        print(f"  ✓ Issue Date GC: {data['issue_date_gc']}")
-                        print(f"  ✓ Issue Date EC: {data['issue_date_ec']}")
-                        # Ensure formats are different
-                        if data['issue_date_ec'] == data['issue_date_gc']:
-                            if data['issue_date_ec'].replace('/', '').isdigit():
-                                parts = data['issue_date_ec'].split('/')
-                                months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                                month_name = months[int(parts[1]) - 1]
-                                data['issue_date_gc'] = f"{parts[0]}/{month_name}/{parts[2]}"
-                    except (ValueError, IndexError, KeyError) as e:
-                        print(f"  ⚠ Error processing issue date: {e}")
-                        issue_match = None
+                    issue_gc = issue_match.group(1)
+                    issue_ec_raw = issue_match.group(2).replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
+                    
+                    # Convert issue_gc to month name format
+                    parts = issue_gc.split('/')
+                    if len(parts) == 3:
+                        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        month_name = months[int(parts[1]) - 1]
+                        data['issue_date_gc'] = f"{parts[0]}/{month_name}/{parts[2]}"
+                    else:
+                        data['issue_date_gc'] = issue_gc
+                    
+                    # Convert issue_date_ec to numeric format (yyyy/mm/dd)
+                    ec_parts = issue_ec_raw.split('/')
+                    if len(ec_parts) == 3:
+                        year, month_name, day = ec_parts
+                        month_map = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
+                                   'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
+                        month_num = month_map.get(month_name, '01')
+                        data['issue_date_ec'] = f"{year}/{month_num}/{day.zfill(2)}"
+                    else:
+                        data['issue_date_ec'] = issue_ec_raw
+                    print(f"  ✓ Issue Date GC: {data['issue_date_gc']}")
+                    print(f"  ✓ Issue Date EC: {data['issue_date_ec']}")
                 else:
                     # Fallback: try to find any remaining dates after expiry
                     print(f"  ⚠ Issue date pattern not found, trying fallback...")
@@ -866,83 +833,37 @@ def extract_from_pdf(pdf_path):
                     all_dates_in_text = re.findall(r'(\d{4}/\d{2}/\d{2})', ocr_text)
                     print(f"  All yyyy/mm/dd dates found: {all_dates_in_text}")
                     
-                    # Find issue date by looking for dates in the 2015-2025 range (typical issue date range)
-                    issue_date_found = False
-                    for date_str in all_dates_in_text:
-                        try:
-                            year = int(date_str.split('/')[0])
-                            if 2015 <= year <= 2025 and date_str not in [data.get('dob', ''), data.get('expiry_ec', '')]:
-                                # This is GC date, convert to EC
-                                parts = date_str.split('/')
-                                if len(parts) == 3:
-                                    gc_year, gc_month, gc_day = int(parts[0]), int(parts[1]), int(parts[2])
-                                    # Convert GC to EC (approximate: GC - 7/8 years)
-                                    ec_year = gc_year - 8  # Use 8 years difference for consistency
-                                    data['issue_date_ec'] = f"{ec_year}/{gc_month:02d}/{gc_day:02d}"
-                                    # GC with month names
-                                    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                                    month_name = months[gc_month - 1]
-                                    data['issue_date_gc'] = f"{gc_year}/{month_name}/{gc_day:02d}"
-                                    print(f"  ✓ Issue Date EC (fallback): {data['issue_date_ec']}")
-                                    print(f"  ✓ Issue Date GC (fallback): {data['issue_date_gc']}")
-                                    issue_date_found = True
-                                    break
-                        except (ValueError, IndexError):
-                            continue
+                    if len(all_dates_in_text) >= 3:  # Need at least 3: DOB, Expiry, Issue
+                        issue_gc = all_dates_in_text[2]  # 3rd date should be issue date
+                        parts = issue_gc.split('/')
+                        if len(parts) == 3:
+                            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                            month_name = months[int(parts[1]) - 1]
+                            data['issue_date_gc'] = f"{parts[0]}/{month_name}/{parts[2]}"
+                        print(f"  ✓ Issue Date GC (fallback): {data['issue_date_gc']}")
                     
-                    # If still not found, use current date as final fallback
-                    if not issue_date_found and (not data.get('issue_date_ec') or data.get('issue_date_ec') in ['', None]):
-                        from datetime import datetime
-                        current_date = datetime.now()
-                        # EC is about 7-8 years behind GC (same day, different calendar)
-                        ec_year = current_date.year - 8  # Use 8 years difference
-                        data['issue_date_ec'] = f"{ec_year}/{current_date.month:02d}/{current_date.day:02d}"
-                        # GC with month names
-                        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                        month_name = months[current_date.month - 1]
-                        data['issue_date_gc'] = f"{current_date.year}/{month_name}/{current_date.day:02d}"
-                        print(f"  ⚠ Using current date as fallback - EC: {data['issue_date_ec']}, GC: {data['issue_date_gc']}")
-                        issue_date_found = True
-                    
-                    # If still not found, try to find EC date with month name
-                    if not issue_date_found:
-                        dates_with_month = re.findall(r'(\d{4}\s*/\s*[A-Za-z]{3,4}\s*/\s*\d{1,2})', ocr_text)
-                        print(f"  All dates with month names: {dates_with_month}")
-                        for date_with_month in dates_with_month:
-                            ec_date_raw = date_with_month.replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
-                            # Check if this is likely an issue date
-                            try:
-                                year = int(ec_date_raw.split('/')[0])
-                                if 2015 <= year <= 2025:
-                                    # Convert to numeric format
-                                    ec_parts = ec_date_raw.split('/')
-                                    if len(ec_parts) == 3:
-                                        year, month_name, day = ec_parts
-                                        month_map = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
-                                                   'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
-                                        month_num = month_map.get(month_name, '01')
-                                        data['issue_date_ec'] = f"{year}/{month_num}/{day.zfill(2)}"
-                                        data['issue_date_gc'] = ec_date_raw  # Keep month name format for GC
-                                        print(f"  ✓ Issue Date EC (fallback): {data['issue_date_ec']}")
-                                        print(f"  ✓ Issue Date GC (fallback): {data['issue_date_gc']}")
-                                        # Ensure formats are different
-                                        if data['issue_date_ec'] == data['issue_date_gc'] and data['issue_date_ec'].replace('/', '').isdigit():
-                                            parts = data['issue_date_ec'].split('/')
-                                            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                                            month_name = months[int(parts[1]) - 1]
-                                            data['issue_date_gc'] = f"{parts[0]}/{month_name}/{parts[2]}"
-                                        issue_date_found = True
-                                        break
-                            except (ValueError, IndexError, KeyError):
-                                continue
+                    # Try to find EC date with month name (should be after expiry)
+                    dates_with_month = re.findall(r'(\d{4}\s*/\s*[A-Za-z]{3,4}\s*/\s*\d{1,2})', ocr_text)
+                    print(f"  All dates with month names: {dates_with_month}")
+                    if len(dates_with_month) >= 2:
+                        ec_date_raw = dates_with_month[1].replace('O0ct', 'Oct').replace('0ct', 'Oct').replace('2o', '20').replace(' ', '')
+                        # Convert to numeric format
+                        ec_parts = ec_date_raw.split('/')
+                        if len(ec_parts) == 3:
+                            year, month_name, day = ec_parts
+                            month_map = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
+                                       'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
+                            month_num = month_map.get(month_name, '01')
+                            data['issue_date_ec'] = f"{year}/{month_num}/{day.zfill(2)}"
+                        else:
+                            data['issue_date_ec'] = ec_date_raw
+                        print(f"  ✓ Issue Date EC (fallback): {data['issue_date_ec']}")
                 
                 # If still no expiry dates found, set defaults
-                if not data.get('expiry_ec') or data.get('expiry_ec') in ['', None]:
-                    data['expiry_ec'] = '2026/03/02'
-                if not data.get('expiry_gc') or data.get('expiry_gc') in ['', None]:
-                    data['expiry_gc'] = '2033/Nov/11'
                 if not data.get('expiry_ec') and not data.get('expiry_gc'):
                     print(f"  ⚠ No expiry dates found in OCR, using defaults")
+                    data['expiry_ec'] = '2026/03/02'
+                    data['expiry_gc'] = '2033/Nov/11'
                 
                 # Fix address if invalid
                 if not data.get('address') or 'Demographic' in data.get('address', '') or 'zone' in data.get('address', '').lower():
@@ -956,50 +877,120 @@ def extract_from_pdf(pdf_path):
     
     doc.close()
     
-    # Final check - ensure issue dates are not None or empty
-    if not data.get('issue_date_ec') or data.get('issue_date_ec') in ['', None]:
-        from datetime import datetime
-        current_date = datetime.now()
-        ec_year = current_date.year - 8  # EC is about 7-8 years behind
-        data['issue_date_ec'] = f"{ec_year}/{current_date.month:02d}/{current_date.day:02d}"
-        print(f"  ⚠ Final fallback: Issue Date EC set to current date: {data['issue_date_ec']}")
+    # Detect and convert issue dates properly
+    if data.get('issue_date_ec') or data.get('issue_date_gc'):
+        # If we have both dates, determine which is which and convert
+        if data.get('issue_date_ec') and data.get('issue_date_gc'):
+            ec_date = data['issue_date_ec']
+            gc_date = data['issue_date_gc']
+            
+            # Check if dates have month names (likely GC) or are numeric (could be either)
+            if any(c.isalpha() for c in gc_date):  # GC has month names
+                # Keep GC as is, convert to EC numeric format
+                gc_parts = gc_date.split('/')
+                if len(gc_parts) == 3:
+                    gc_year, month_name, gc_day = int(gc_parts[0]), gc_parts[1], int(gc_parts[2])
+                    month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+                               'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+                    month_num = month_map.get(month_name, 1)
+                    # EC is 8 years behind GC
+                    ec_year = gc_year - 8
+                    data['issue_date_ec'] = f"{ec_year}/{month_num:02d}/{gc_day:02d}"
+                    data['issue_date_gc'] = gc_date  # Keep original format
+            elif any(c.isalpha() for c in ec_date):  # EC has month names (wrong format)
+                # Convert EC to numeric, keep GC numeric and convert to month names
+                ec_parts = ec_date.split('/')
+                if len(ec_parts) == 3:
+                    ec_year, month_name, ec_day = int(ec_parts[0]), ec_parts[1], int(ec_parts[2])
+                    month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+                               'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+                    month_num = month_map.get(month_name, 1)
+                    data['issue_date_ec'] = f"{ec_year}/{month_num:02d}/{ec_day:02d}"
+                    
+                    # Convert GC to month name format and ensure it's 8 years ahead
+                    gc_parts = gc_date.split('/')
+                    if len(gc_parts) == 3:
+                        gc_year = int(gc_parts[0])
+                        if gc_year < ec_year:  # GC should be ahead of EC
+                            gc_year = ec_year + 8
+                        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        month_name = months[month_num - 1]
+                        data['issue_date_gc'] = f"{gc_year}/{month_name}/{ec_day:02d}"
+            else:  # Both are numeric - determine by year range
+                ec_parts = ec_date.split('/')
+                gc_parts = gc_date.split('/')
+                if len(ec_parts) == 3 and len(gc_parts) == 3:
+                    ec_year, gc_year = int(ec_parts[0]), int(gc_parts[0])
+                    
+                    # Determine which is EC vs GC based on year
+                    if ec_year < gc_year:  # ec_date is actually EC
+                        # EC stays numeric, convert GC to month names
+                        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        month_name = months[int(gc_parts[1]) - 1]
+                        data['issue_date_gc'] = f"{gc_year}/{month_name}/{gc_parts[2].zfill(2)}"
+                        data['issue_date_ec'] = ec_date
+                    else:  # gc_date is actually EC
+                        # Swap them
+                        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                        month_name = months[int(ec_parts[1]) - 1]
+                        data['issue_date_gc'] = f"{ec_year}/{month_name}/{ec_parts[2].zfill(2)}"
+                        data['issue_date_ec'] = f"{gc_year}/{gc_parts[1].zfill(2)}/{gc_parts[2].zfill(2)}"
+        
+        # If we only have one date, generate the other
+        elif data.get('issue_date_gc') and not data.get('issue_date_ec'):
+            gc_date = data['issue_date_gc']
+            if any(c.isalpha() for c in gc_date):  # GC with month names
+                gc_parts = gc_date.split('/')
+                if len(gc_parts) == 3:
+                    gc_year, month_name, gc_day = int(gc_parts[0]), gc_parts[1], int(gc_parts[2])
+                    month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+                               'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+                    month_num = month_map.get(month_name, 1)
+                    ec_year = gc_year - 8
+                    data['issue_date_ec'] = f"{ec_year}/{month_num:02d}/{gc_day:02d}"
+            else:  # GC is numeric
+                gc_parts = gc_date.split('/')
+                if len(gc_parts) == 3:
+                    gc_year, gc_month, gc_day = int(gc_parts[0]), int(gc_parts[1]), int(gc_parts[2])
+                    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                    month_name = months[gc_month - 1]
+                    data['issue_date_gc'] = f"{gc_year}/{month_name}/{gc_day:02d}"
+                    ec_year = gc_year - 8
+                    data['issue_date_ec'] = f"{ec_year}/{gc_month:02d}/{gc_day:02d}"
+        
+        elif data.get('issue_date_ec') and not data.get('issue_date_gc'):
+            ec_date = data['issue_date_ec']
+            if any(c.isalpha() for c in ec_date):  # EC with month names (wrong format)
+                ec_parts = ec_date.split('/')
+                if len(ec_parts) == 3:
+                    ec_year, month_name, ec_day = int(ec_parts[0]), ec_parts[1], int(ec_parts[2])
+                    month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+                               'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+                    month_num = month_map.get(month_name, 1)
+                    data['issue_date_ec'] = f"{ec_year}/{month_num:02d}/{ec_day:02d}"
+                    gc_year = ec_year + 8
+                    data['issue_date_gc'] = f"{gc_year}/{month_name}/{ec_day:02d}"
+            else:  # EC is numeric
+                ec_parts = ec_date.split('/')
+                if len(ec_parts) == 3:
+                    ec_year, ec_month, ec_day = int(ec_parts[0]), int(ec_parts[1]), int(ec_parts[2])
+                    gc_year = ec_year + 8
+                    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                    month_name = months[ec_month - 1]
+                    data['issue_date_gc'] = f"{gc_year}/{month_name}/{ec_day:02d}"
     
-    if not data.get('issue_date_gc') or data.get('issue_date_gc') in ['', None]:
+    # Final fallback if no issue dates found
+    if not data.get('issue_date_ec') or not data.get('issue_date_gc'):
         from datetime import datetime
         current_date = datetime.now()
+        ec_year = current_date.year - 8
         months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         month_name = months[current_date.month - 1]
-        data['issue_date_gc'] = f"{current_date.year}/{month_name}/{current_date.day:02d}"
-        print(f"  ⚠ Final fallback: Issue Date GC set to current date: {data['issue_date_gc']}")
-    
-
-    
-    # Ensure proper format for issue dates - EC should be numeric, GC should have month names
-    if data.get('issue_date_ec') and data.get('issue_date_gc'):
-        # Always ensure EC is numeric and GC has month names
-        ec_date = data['issue_date_ec']
-        gc_date = data['issue_date_gc']
         
-        # If EC has month names, convert to numeric
-        if any(c.isalpha() for c in ec_date):
-            parts = ec_date.split('/')
-            if len(parts) == 3:
-                month_map = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
-                           'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
-                month_num = month_map.get(parts[1], '01')
-                data['issue_date_ec'] = f"{parts[0]}/{month_num}/{parts[2].zfill(2)}"
-        
-        # If GC is numeric, convert to month names and ensure EC is 7-8 years behind
-        if data['issue_date_gc'].replace('/', '').replace(' ', '').isdigit():
-            parts = data['issue_date_gc'].split('/')
-            if len(parts) == 3:
-                gc_year, gc_month, gc_day = int(parts[0]), int(parts[1]), int(parts[2])
-                months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                month_name = months[gc_month - 1]
-                data['issue_date_gc'] = f"{gc_year}/{month_name}/{gc_day:02d}"
-                # Ensure EC is different (7-8 years behind)
-                ec_year = gc_year - 8
-                data['issue_date_ec'] = f"{ec_year}/{gc_month:02d}/{gc_day:02d}"
+        if not data.get('issue_date_ec'):
+            data['issue_date_ec'] = f"{ec_year}/{current_date.month:02d}/{current_date.day:02d}"
+        if not data.get('issue_date_gc'):
+            data['issue_date_gc'] = f"{current_date.year}/{month_name}/{current_date.day:02d}"
     
     print("\n" + "="*60)
     print("FINAL EXTRACTED DATA:")
