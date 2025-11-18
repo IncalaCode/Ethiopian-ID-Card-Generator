@@ -816,11 +816,17 @@ def extract_from_pdf(pdf_path):
     # Always use current date for issue dates
     from datetime import datetime
     current_date = datetime.now()
-    ec_year = current_date.year - 8  # EC is 8 years behind
+    
+    # Ethiopian calendar conversion (approximate)
+    ec_year = current_date.year - 8
+    # Ethiopian months are offset - Nov in GC is roughly month 3 in EC
+    ec_month_map = {1: 5, 2: 6, 3: 7, 4: 8, 5: 9, 6: 10, 7: 11, 8: 12, 9: 1, 10: 2, 11: 3, 12: 4}
+    ec_month = ec_month_map.get(current_date.month, current_date.month)
+    
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     month_name = months[current_date.month - 1]
     
-    data['issue_date_ec'] = f"{ec_year}/{current_date.month:02d}/{current_date.day:02d}"
+    data['issue_date_ec'] = f"{ec_year}/{ec_month:02d}/{current_date.day:02d}"
     data['issue_date_gc'] = f"{current_date.year}/{month_name}/{current_date.day:02d}"
     
     print("\n" + "="*60)
