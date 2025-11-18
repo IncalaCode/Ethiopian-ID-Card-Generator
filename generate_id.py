@@ -877,7 +877,7 @@ def extract_from_pdf(pdf_path):
                                 if len(parts) == 3:
                                     gc_year, gc_month, gc_day = int(parts[0]), int(parts[1]), int(parts[2])
                                     # Convert GC to EC (approximate: GC - 7/8 years)
-                                    ec_year = gc_year - 7
+                                    ec_year = gc_year - 8  # Use 8 years difference for consistency
                                     data['issue_date_ec'] = f"{ec_year}/{gc_month:02d}/{gc_day:02d}"
                                     # GC with month names
                                     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -894,8 +894,8 @@ def extract_from_pdf(pdf_path):
                     if not issue_date_found and (not data.get('issue_date_ec') or data.get('issue_date_ec') in ['', None]):
                         from datetime import datetime
                         current_date = datetime.now()
-                        # EC is about 7 years behind GC
-                        ec_year = current_date.year - 7
+                        # EC is about 7-8 years behind GC (same day, different calendar)
+                        ec_year = current_date.year - 8  # Use 8 years difference
                         data['issue_date_ec'] = f"{ec_year}/{current_date.month:02d}/{current_date.day:02d}"
                         # GC with month names
                         months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -960,7 +960,7 @@ def extract_from_pdf(pdf_path):
     if not data.get('issue_date_ec') or data.get('issue_date_ec') in ['', None]:
         from datetime import datetime
         current_date = datetime.now()
-        ec_year = current_date.year - 7  # EC is about 7 years behind
+        ec_year = current_date.year - 8  # EC is about 7-8 years behind
         data['issue_date_ec'] = f"{ec_year}/{current_date.month:02d}/{current_date.day:02d}"
         print(f"  ⚠ Final fallback: Issue Date EC set to current date: {data['issue_date_ec']}")
     
@@ -989,7 +989,7 @@ def extract_from_pdf(pdf_path):
                 month_num = month_map.get(parts[1], '01')
                 data['issue_date_ec'] = f"{parts[0]}/{month_num}/{parts[2].zfill(2)}"
         
-        # If GC is numeric, convert to month names and ensure EC is 7 years behind
+        # If GC is numeric, convert to month names and ensure EC is 7-8 years behind
         if data['issue_date_gc'].replace('/', '').replace(' ', '').isdigit():
             parts = data['issue_date_gc'].split('/')
             if len(parts) == 3:
@@ -997,8 +997,8 @@ def extract_from_pdf(pdf_path):
                 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
                 month_name = months[gc_month - 1]
                 data['issue_date_gc'] = f"{gc_year}/{month_name}/{gc_day:02d}"
-                # Ensure EC is different (7 years behind)
-                ec_year = gc_year - 7
+                # Ensure EC is different (7-8 years behind)
+                ec_year = gc_year - 8
                 data['issue_date_ec'] = f"{ec_year}/{gc_month:02d}/{gc_day:02d}"
     
     print("\n" + "="*60)
