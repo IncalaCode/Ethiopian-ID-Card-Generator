@@ -59,18 +59,31 @@ if hasattr(sys, '_MEIPASS'):
 # ============================================================
 # EASYOCR INITIALIZATION
 # ============================================================
-print("\\nInitializing EasyOCR...")
+print("\nInitializing EasyOCR...")
 HAS_OCR = False
 EASYOCR_READER = None
 
 try:
     import easyocr
-    print("  → Loading EasyOCR models (first run downloads ~100MB)...")
-    # Note: EasyOCR doesn't support Amharic, using English only
-    EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
+    
+    # Use local bundled models to avoid downloads
+    model_storage_directory = os.path.join(os.path.dirname(__file__), '.easyocr_models')
+    
+    # Create directory if it doesn't exist
+    os.makedirs(model_storage_directory, exist_ok=True)
+    
+    print(f"  → Using models from: {model_storage_directory}")
+    
+    # Initialize with local model directory
+    EASYOCR_READER = easyocr.Reader(
+        ['en'], 
+        gpu=False, 
+        verbose=False,
+        model_storage_directory=model_storage_directory,
+        download_enabled=False  # Prevent downloads
+    )
     HAS_OCR = True
-    print("✓ EasyOCR ready (English only - Amharic not supported)")
-    print("  ℹ️  Amharic text will be extracted from PDF text, not OCR")
+    print("✓ EasyOCR ready (using bundled models)")
 except ImportError:
     print("⚠ EasyOCR not installed")
     print("  → Install with: pip install easyocr")

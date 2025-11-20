@@ -10,27 +10,17 @@ import sys
 # ============================================================
 easyocr_models = []
 
-# Find EasyOCR model directory
-try:
-    import easyocr
-    # EasyOCR stores models in ~/.EasyOCR/model/
-    user_home = os.path.expanduser('~')
-    easyocr_model_dir = os.path.join(user_home, '.EasyOCR', 'model')
-    
-    if os.path.exists(easyocr_model_dir):
-        print(f"Found EasyOCR models at: {easyocr_model_dir}")
-        # Bundle all model files
-        for file in os.listdir(easyocr_model_dir):
-            model_path = os.path.join(easyocr_model_dir, file)
-            if os.path.isfile(model_path):
-                easyocr_models.append((model_path, '.EasyOCR/model'))
-                print(f"  → Bundling model: {file}")
-    else:
-        print("WARNING: EasyOCR models not found!")
-        print("  → Run the app once to download models before building")
-except ImportError:
-    print("WARNING: EasyOCR not installed!")
-    print("  → Install with: pip install easyocr")
+# Use local .easyocr_models directory
+local_model_dir = '.easyocr_models'
+
+if os.path.exists(local_model_dir):
+    print(f"Found local EasyOCR models at: {local_model_dir}")
+    # Bundle the entire directory
+    easyocr_models.append((local_model_dir, '.easyocr_models'))
+    print(f"  → Bundling local models")
+else:
+    print("WARNING: Local EasyOCR models not found!")
+    print("  → Run: mkdir .easyocr_models && cp ~/.EasyOCR/model/* .easyocr_models/")
 
 # ============================================================
 # PYZBAR DLL BUNDLING
