@@ -5,18 +5,30 @@ echo ==================================
 echo Ethiopian ID Generator - Build
 echo ==================================
 
-REM Check if Tesseract is installed
-where tesseract >nul 2>&1
+REM Check if EasyOCR is installed
+python -c "import easyocr" >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Tesseract is not installed or not in PATH!
+    echo ERROR: EasyOCR is not installed!
     echo.
-    echo Please install Tesseract OCR from:
-    echo https://github.com/UB-Mannheim/tesseract/wiki
+    echo Installing EasyOCR...
+    pip install easyocr
     echo.
-    echo Make sure to:
-    echo 1. Install to C:\Program Files\Tesseract-OCR
-    echo 2. Select "Additional language data" during installation
-    echo 3. Choose "Amharic" language pack
+    echo Please run the app once to download models before building:
+    echo   python web_server.py
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Check if EasyOCR models are downloaded
+python -c "import os; exit(0 if os.path.exists(os.path.expanduser('~/.EasyOCR/model')) else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo WARNING: EasyOCR models not downloaded yet!
+    echo.
+    echo Please run the app once to download models:
+    echo   python web_server.py
+    echo.
+    echo This will download ~100MB of models.
     echo.
     pause
     exit /b 1
@@ -36,6 +48,7 @@ if exist dist rmdir /s /q dist
 
 REM Build the application
 echo Building application...
+echo This will bundle EasyOCR models (~100MB)
 pyinstaller build_app_windows.spec
 
 REM Check if build was successful
@@ -45,6 +58,10 @@ if exist "dist\EthiopianIDGenerator\EthiopianIDGenerator.exe" (
     echo Build successful!
     echo ==================================
     echo Executable created: dist\EthiopianIDGenerator\EthiopianIDGenerator.exe
+    echo.
+    echo The executable includes:
+    echo   - EasyOCR models (no installation needed)
+    echo   - All dependencies
     echo.
     echo To run the app:
     echo   cd dist\EthiopianIDGenerator

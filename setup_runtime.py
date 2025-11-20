@@ -1,44 +1,32 @@
 #!/usr/bin/env python3
 """
-Runtime setup script to configure Tesseract and fonts paths
+Runtime setup script to configure EasyOCR models and fonts paths
 This runs when the bundled app starts
 """
 import os
 import sys
 
-def setup_tesseract():
-    """Configure Tesseract path for bundled executable"""
+def setup_easyocr():
+    """Configure EasyOCR model path for bundled executable"""
     if getattr(sys, 'frozen', False):
         # Running as bundled executable
         bundle_dir = sys._MEIPASS
         
-        # Windows uses .exe extension
-        if sys.platform == 'win32':
-            tesseract_path = os.path.join(bundle_dir, 'tesseract', 'tesseract.exe')
+        # EasyOCR models bundled in .EasyOCR/model/
+        easyocr_model_dir = os.path.join(bundle_dir, '.EasyOCR', 'model')
+        
+        if os.path.exists(easyocr_model_dir):
+            # Set environment variable for EasyOCR to find models
+            os.environ['EASYOCR_MODULE_PATH'] = bundle_dir
+            print(f"✓ EasyOCR models configured: {easyocr_model_dir}")
+            
+            # List bundled models
+            if os.path.isdir(easyocr_model_dir):
+                model_files = [f for f in os.listdir(easyocr_model_dir)]
+                print(f"  Bundled models: {len(model_files)} files")
         else:
-            tesseract_path = os.path.join(bundle_dir, 'tesseract', 'tesseract')
-        
-        tessdata_path = os.path.join(bundle_dir, 'tessdata')
-        
-        # Set Tesseract paths
-        if os.path.exists(tesseract_path):
-            import pytesseract
-            pytesseract.pytesseract.tesseract_cmd = tesseract_path
-            print(f"✓ Tesseract configured: {tesseract_path}")
-        
-        # Set tessdata path
-        if os.path.exists(tessdata_path):
-            if sys.platform == 'win32':
-                os.environ['TESSDATA_PREFIX'] = tessdata_path + '\\'
-            else:
-                os.environ['TESSDATA_PREFIX'] = tessdata_path + '/'
-            print(f"✓ Tessdata configured: {tessdata_path}")
-            # List available language files
-            if os.path.isdir(tessdata_path):
-                lang_files = [f for f in os.listdir(tessdata_path) if f.endswith('.traineddata')]
-                print(f"  Available languages: {', '.join([f.replace('.traineddata', '') for f in lang_files])}")
-        else:
-            print("⚠ Tessdata not found in bundle, using system installation")
+            print("⚠ EasyOCR models not found in bundle")
+            print("  Models will be downloaded on first run")
 
 def setup_fonts():
     """Configure font paths for bundled executable"""
@@ -72,6 +60,6 @@ def setup_pyzbar():
 
 # Run setup when imported
 if __name__ != '__main__':
-    setup_tesseract()
+    setup_easyocr()
     setup_fonts()
     setup_pyzbar()

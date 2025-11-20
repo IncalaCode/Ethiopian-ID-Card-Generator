@@ -56,6 +56,57 @@ if hasattr(sys, '_MEIPASS'):
         print(f"  ⚠ DLL setup failed: {e}")
         pass  # Will fall back to OCR
 
+# ============================================================
+# EASYOCR INITIALIZATION
+# ============================================================
+print("\\nInitializing EasyOCR...")
+HAS_OCR = False
+EASYOCR_READER = None
+
+try:
+    import easyocr
+    print("  → Loading EasyOCR models (first run downloads ~100MB)...")
+    EASYOCR_READER = easyocr.Reader(['en', 'am'], gpu=False, verbose=False)
+    HAS_OCR = True
+    print("✓ EasyOCR ready (English + Amharic)")
+except ImportError:
+    print("⚠ EasyOCR not installed")
+    print("  → Install with: pip install easyocr")
+    print("  → Extraction will use PDF text only (some fields may be missing)")
+except Exception as e:
+    print(f"⚠ EasyOCR initialization failed: {e}")
+    print("  → Extraction will use PDF text only (some fields may be missing)")
+
+print("━" * 60)
+
+
+def perform_ocr(image):
+    """
+    Perform OCR on an image using EasyOCR.
+    
+    Args:
+        image: numpy array (BGR format from cv2) or grayscale
+    
+    Returns:
+        str: Extracted text
+    """
+    if not HAS_OCR or EASYOCR_READER is None:
+        return ""
+    
+    try:
+        # EasyOCR expects RGB, cv2 loads as BGR
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            image_rgb = image
+        
+        result = EASYOCR_READER.readtext(image_rgb, detail=0)
+        return '\\n'.join(result)
+    except Exception as e:
+        print(f"  ⚠ OCR failed: {e}")
+        return ""
+
+
 class EthiopianIDGenerator:
     def __init__(self):
         # Load fonts with larger sizes from local font folder
@@ -283,16 +334,13 @@ class EthiopianIDGenerator:
                     except ImportError:
                         print(f"  ⚠ pyzbar not available, trying OCR fallback")
                         # Use OCR as last resort
-                        try:
-                            import pytesseract
-                            ocr_result = pytesseract.image_to_string(gray, config='--psm 6')
+                        if HAS_OCR:
+                            ocr_result = perform_ocr(gray)
                             if ocr_result.strip():
                                 decoded_text = ocr_result.strip()
                                 print(f"  ✓ Extracted text using OCR (may not be QR data)")
-                        except Exception as ocr_e:
-                            import traceback
-                            print(f"  ✗ OCR fallback failed: {ocr_e}")
-                            print(f"  OCR error details: {traceback.format_exc()}")
+                        else:
+                            print(f"  ⚠ OCR not available")
                     except Exception as e:
                         import traceback
                         error_details = traceback.format_exc()
@@ -302,17 +350,11 @@ class EthiopianIDGenerator:
                         print(f"  Falling back to OCR...")
                     
                     # Use OCR as fallback
-                    if not decoded_text:
-                        try:
-                            import pytesseract
-                            ocr_result = pytesseract.image_to_string(gray, config='--psm 6')
-                            if ocr_result.strip():
-                                decoded_text = ocr_result.strip()
-                                print(f"  ✓ Extracted text using OCR (may not be QR data)")
-                        except Exception as ocr_e:
-                            import traceback
-                            print(f"  ✗ OCR fallback failed: {ocr_e}")
-                            print(f"  OCR error details: {traceback.format_exc()}")
+                    if not decoded_text and HAS_OCR:
+                        ocr_result = perform_ocr(gray)
+                        if ocr_result.strip():
+                            decoded_text = ocr_result.strip()
+                            print(f"  ✓ Extracted text using OCR (may not be QR data)")
                 
                 if decoded_text:
                     qr_data = decoded_text
@@ -700,14 +742,13 @@ def extract_from_pdf(pdf_path):
             print(f"  ✓ Person photo: {saved_images[0]}")
         
         # Extract FIN from extracted_image_3.jpg if exists
-        if len(saved_images) >= 4:
+        if len(saved_images) >= 4 and HAS_OCR:
             print("\n--- Extracting FIN from extracted_image_3.jpg ---")
             try:
-                import pytesseract
                 fin_img = cv2.imread(saved_images[3])
                 fin_gray = cv2.cvtColor(fin_img, cv2.COLOR_BGR2GRAY)
                 fin_gray = cv2.threshold(fin_gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-                fin_text = pytesseract.image_to_string(fin_gray, config='--psm 6')
+                fin_text = perform_ocr(fin_gray)
                 print(f"  FIN OCR text: {fin_text}")
                 
                 # Extract FIN number - look for pattern after "FIN"
@@ -729,18 +770,16 @@ def extract_from_pdf(pdf_path):
                 print(f"  ✗ Could not extract FIN: {e}")
         
         # 3rd from last image contains all data
-        if len(saved_images) >= 3:
+        if len(saved_images) >= 3 and HAS_OCR:
             print("\n--- Extracting data from 3rd last image with OCR ---")
             try:
-                import pytesseract
-                
                 img_cv = cv2.imread(saved_images[-3])
                 # Preprocess image for better OCR
                 gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
                 gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
                 gray = cv2.medianBlur(gray, 3)
                 
-                ocr_text = pytesseract.image_to_string(gray, lang='eng+amh', config='--oem 1 --psm 3')
+                ocr_text = perform_ocr(gray)
                 print(f"  Full OCR text:\n{ocr_text}")
                 
                 # Extract name if missing

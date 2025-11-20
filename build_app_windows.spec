@@ -5,33 +5,36 @@ block_cipher = None
 import os
 import sys
 
-# Paths for Windows Tesseract (adjust if needed)
-tesseract_binaries = []
-tessdata_files = []
+# ============================================================
+# EASYOCR MODELS BUNDLING
+# ============================================================
+easyocr_models = []
 
-# Common Tesseract installation paths on Windows
-tesseract_paths = [
-    r'C:\Program Files\Tesseract-OCR',
-    r'C:\Program Files (x86)\Tesseract-OCR',
-]
+# Find EasyOCR model directory
+try:
+    import easyocr
+    # EasyOCR stores models in ~/.EasyOCR/model/
+    user_home = os.path.expanduser('~')
+    easyocr_model_dir = os.path.join(user_home, '.EasyOCR', 'model')
+    
+    if os.path.exists(easyocr_model_dir):
+        print(f"Found EasyOCR models at: {easyocr_model_dir}")
+        # Bundle all model files
+        for file in os.listdir(easyocr_model_dir):
+            model_path = os.path.join(easyocr_model_dir, file)
+            if os.path.isfile(model_path):
+                easyocr_models.append((model_path, '.EasyOCR/model'))
+                print(f"  → Bundling model: {file}")
+    else:
+        print("WARNING: EasyOCR models not found!")
+        print("  → Run the app once to download models before building")
+except ImportError:
+    print("WARNING: EasyOCR not installed!")
+    print("  → Install with: pip install easyocr")
 
-for tess_path in tesseract_paths:
-    if os.path.exists(tess_path):
-        # Add tesseract.exe
-        tess_exe = os.path.join(tess_path, 'tesseract.exe')
-        if os.path.exists(tess_exe):
-            tesseract_binaries.append((tess_exe, 'tesseract'))
-        
-        # Add tessdata files
-        tessdata_dir = os.path.join(tess_path, 'tessdata')
-        if os.path.exists(tessdata_dir):
-            for lang_file in ['eng.traineddata', 'amh.traineddata', 'osd.traineddata']:
-                lang_path = os.path.join(tessdata_dir, lang_file)
-                if os.path.exists(lang_path):
-                    tessdata_files.append((lang_path, 'tessdata'))
-        break
-
-# Find pyzbar DLL and dependencies
+# ============================================================
+# PYZBAR DLL BUNDLING
+# ============================================================
 pyzbar_binaries = []
 try:
     import pyzbar
@@ -66,7 +69,9 @@ try:
 except ImportError:
     pass
 
-# Find Noto fonts - use local font folder
+# ============================================================
+# FONT FILES BUNDLING
+# ============================================================
 font_files = []
 local_font_dir = 'font'
 if os.path.exists(local_font_dir):
@@ -83,15 +88,18 @@ if not font_files:
         if os.path.exists(font_path):
             font_files.append((font_path, 'font'))
 
+# ============================================================
+# PYINSTALLER ANALYSIS
+# ============================================================
 a = Analysis(
     ['web_server.py', 'setup_runtime.py'],
     pathex=[],
-    binaries=tesseract_binaries + pyzbar_binaries,
+    binaries=pyzbar_binaries,
     datas=[
         ('data', 'data'),
         ('font', 'font'),
         ('setup_runtime.py', '.'),
-    ] + tessdata_files + font_files,
+    ] + easyocr_models + font_files,
     hiddenimports=[
         'PIL._tkinter_finder',
         'flask',
@@ -105,13 +113,18 @@ a = Analysis(
         'cv2',
         'numpy',
         'fitz',
-        'pytesseract',
+        'easyocr',
+        'easyocr.recognition',
+        'easyocr.detection',
+        'easyocr.utils',
         'pyzbar',
         'pyzbar.pyzbar',
         'pyzbar.wrapper',
         'pyzbar.zbar_library',
         'convertdate',
         'pkg_resources.py2_warn',
+        'torch',
+        'torchvision',
     ],
     hookspath=['.'],
     hooksconfig={},
