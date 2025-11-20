@@ -66,9 +66,11 @@ EASYOCR_READER = None
 try:
     import easyocr
     print("  → Loading EasyOCR models (first run downloads ~100MB)...")
-    EASYOCR_READER = easyocr.Reader(['en', 'am'], gpu=False, verbose=False)
+    # Note: EasyOCR doesn't support Amharic, using English only
+    EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
     HAS_OCR = True
-    print("✓ EasyOCR ready (English + Amharic)")
+    print("✓ EasyOCR ready (English only - Amharic not supported)")
+    print("  ℹ️  Amharic text will be extracted from PDF text, not OCR")
 except ImportError:
     print("⚠ EasyOCR not installed")
     print("  → Install with: pip install easyocr")
