@@ -146,7 +146,58 @@ def process_queue():
             with processing_lock:
                 is_processing = True
             try:
-                data = extract_from_pdf(filepath)
+                # Define progress callback for toast notifications
+                def show_progress(message, msg_type="info", persistent=False):
+                    if ui_window:
+                        # Update status text
+                        ui_window.status_label.config(
+                            text=message,
+                            fg="#2196F3" if msg_type == "info" else "#4CAF50" if msg_type == "success" else "#f44336"
+                        )
+                        
+                        # Update percentage based on message
+                        if "uploaded" in message.lower():
+                            ui_window.extraction_steps = 0
+                            percentage = 0
+                        elif "extracting fin" in message.lower():
+                            ui_window.extraction_steps = 1
+                            percentage = 25
+                        elif "fin" in message.lower() and "extracted" in message.lower():
+                            ui_window.extraction_steps = 2
+                            percentage = 50
+                        elif "extracting expiry" in message.lower():
+                            ui_window.extraction_steps = 2
+                            percentage = 50
+                        elif "expiry" in message.lower() and "extracted" in message.lower():
+                            ui_window.extraction_steps = 3
+                            percentage = 75
+                        elif "generating" in message.lower():
+                            ui_window.extraction_steps = 3
+                            percentage = 75
+                        elif "completed" in message.lower():
+                            ui_window.extraction_steps = 4
+                            percentage = 100
+                        else:
+                            percentage = int((ui_window.extraction_steps / ui_window.total_steps) * 100)
+                        
+                        # Update percentage label
+                        ui_window.percentage_label.config(
+                            text=f"{percentage}%",
+                            fg="#4CAF50" if percentage == 100 else "#2196F3"
+                        )
+                        
+                        # Reset to 0% after completion
+                        if percentage == 100:
+                            ui_window.root.after(2000, lambda: ui_window.percentage_label.config(text="0%", fg="#2196F3"))
+                        
+                        ui_window.root.update_idletasks()
+                        
+                        # Also show toast for completion messages
+                        if "extracted" in message.lower() or "completed" in message.lower():
+                            ui_window.show_toast(message, msg_type, persistent=False)
+                
+                # Extract data with progress callback
+                data = extract_from_pdf(filepath, progress_callback=show_progress)
                 name = data.get('name_en', 'Unknown')
                 
                 # Notify UI of generation start - persistent toast
@@ -302,10 +353,26 @@ class DataViewerUI:
         
         self.canvas = canvas
         self.preview_container = preview_container
-        self.current_front = None
-        self.current_back = None
-        self.current_item = None
+        # Status label for extraction progress (always visible)
+        self.status_frame = tk.Frame(self.root, bg="#f0f0f0", relief=tk.SUNKEN, bd=2)
+        self.status_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
+        
+        # Percentage display
+        self.percentage_label = tk.Label(self.status_frame, text="0%", bg="#f0f0f0", 
+                                        fg="#2196F3", font=('Arial', 12, 'bold'), width=5)
+        self.percentage_label.pack(side=tk.LEFT, padx=10, pady=5)
+        
+        # Status text
+        self.status_label = tk.Label(self.status_frame, text="Ready", bg="#f0f0f0", 
+                                     fg="#333", font=('Arial', 10, 'bold'), anchor='w')
+        self.status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        # Toast label (for temporary notifications)
         self.toast_label = None
+        
+        # Track extraction progress
+        self.extraction_steps = 0
+        self.total_steps = 4  # PDF text, FIN, Expiry, Generation
         self.last_canvas_width = 0
     
     def create_folder(self):

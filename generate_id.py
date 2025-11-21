@@ -64,6 +64,11 @@ HAS_OCR = False
 EASYOCR_READER = None
 
 try:
+    # Limit CPU threads to reduce fan noise
+    import torch
+    torch.set_num_threads(2)  # Use only 2 CPU cores
+    print("  → CPU threads limited to 2 (reduces fan noise)")
+    
     import easyocr
     
     # Use local bundled models to avoid downloads
@@ -450,8 +455,14 @@ class EthiopianIDGenerator:
         img.save(output_path, format="PNG", dpi=(300, 300))
         print(f"✓ Back card: {output_path}")
 
-def extract_from_pdf(pdf_path):
-    """Extract data and images from PDF"""
+def extract_from_pdf(pdf_path, progress_callback=None):
+    """
+    Extract data and images from PDF
+    
+    Args:
+        pdf_path: Path to PDF file
+        progress_callback: Optional callback function(message, type) for progress updates
+    """
     doc = fitz.open(pdf_path)
     data = {}
     photo = None
@@ -758,6 +769,9 @@ def extract_from_pdf(pdf_path):
         
         # Extract FIN from extracted_image_3.jpg if exists
         if len(saved_images) >= 4 and HAS_OCR:
+            if progress_callback:
+                progress_callback("🔍 Extracting FIN number from image...", "info", persistent=True)
+            
             print("\n--- Extracting FIN from extracted_image_3.jpg ---")
             try:
                 fin_img = cv2.imread(saved_images[3])
@@ -774,6 +788,8 @@ def extract_from_pdf(pdf_path):
                     fin_digits = fin_match.group(1) + fin_match.group(2) + fin_match.group(3)
                     data['fin'] = f"FIN {fin_digits[:4]} {fin_digits[4:8]} {fin_digits[8:12]}"
                     print(f"  ✓ Found FIN: {data['fin']}")
+                    if progress_callback:
+                        progress_callback("✅ FIN number extracted", "success")
                 else:
                     # Fallback: look for any 16-digit pattern, take first 12
                     fin_match = re.search(r'(\d{4})[^\d]*(\d{4})[^\d]*(\d{4})[^\d]*(\d{4})', fin_text_clean)
@@ -781,11 +797,16 @@ def extract_from_pdf(pdf_path):
                         fin_digits = fin_match.group(1) + fin_match.group(2) + fin_match.group(3)
                         data['fin'] = f"FIN {fin_digits[:4]} {fin_digits[4:8]} {fin_digits[8:12]}"
                         print(f"  ✓ Found FIN (fallback): {data['fin']}")
+                        if progress_callback:
+                            progress_callback("✅ FIN number extracted", "success")
             except Exception as e:
                 print(f"  ✗ Could not extract FIN: {e}")
         
         # 3rd from last image contains all data
         if len(saved_images) >= 3 and HAS_OCR:
+            if progress_callback:
+                progress_callback("🔍 Extracting expiry dates from image...", "info", persistent=True)
+            
             print("\n--- Extracting data from 3rd last image with OCR ---")
             try:
                 img_cv = cv2.imread(saved_images[-3])
@@ -825,6 +846,8 @@ def extract_from_pdf(pdf_path):
                     data['expiry_gc'] = expiry_gc
                     print(f"  ✓ Expiry EC: {data['expiry_ec']}")
                     print(f"  ✓ Expiry GC: {data['expiry_gc']}")
+                    if progress_callback:
+                        progress_callback("✅ Expiry dates extracted", "success")
                 else:
                     # Fallback: look for expiry dates in different patterns
                     expiry_patterns = [
